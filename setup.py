@@ -30,7 +30,6 @@ class BuildProtobuf(_build_py):
             if proto_file.endswith(".proto")
         ]
 
-        # ✅ Compile gRPC files to `tools/grpc_interfaces/`
         if grpc_proto_files:
             subprocess.run(
                 [
@@ -44,7 +43,6 @@ class BuildProtobuf(_build_py):
                 check=True,
             )
 
-        # ✅ Move generated files from temp location to `tools/grpc_interfaces`
         grpc_generated_path = os.path.join(grpc_interfaces_output_dir, "tools", "grpc_interfaces")
         if os.path.exists(grpc_generated_path):
             for file in os.listdir(grpc_generated_path):
@@ -54,7 +52,6 @@ class BuildProtobuf(_build_py):
                         os.path.join(grpc_interfaces_output_dir, file),
                     )
 
-        # ✅ Compile root-level .proto files
         if root_proto_files:
             subprocess.run(
                 [
@@ -97,19 +94,6 @@ def find_tool_packages() -> list[str]:
         packages.append("tools.grpc_interfaces")
 
     return packages
-
-# def find_tool_packages() -> list[str]:
-#     """Find all packages and subpackages in the current directory"""
-#     packages = []
-#     for root, dirs, files in os.walk('tools'):
-#         if '__init__.py' in files and root != '.':
-#             # Convert path to package name
-#             package_path = root.lstrip('./').replace('/', '.')
-#             print(package_path)
-#             if package_path:
-#                 packages.append(f'tools.{package_path}')
-#     packages.append('tools.grpc_interfaces')
-#     return packages
 
 setup(
     name='galago_tools',
