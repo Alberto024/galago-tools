@@ -206,7 +206,7 @@ class BioshakeDriver(ABCToolDriver):
     def ungrip(self) -> None:
         self._send_command("seup")
 
-    def start_shake(self, seconds: int, speed: t.Optional[int] = None, acceleration: t.Optional[int] = None
+    def start_shake(self, speed: t.Optional[int] = None, acceleration: t.Optional[int] = None
     ) -> None:
         if not self.is_gripper_closed():
             self.grip()
@@ -274,17 +274,3 @@ class BioshakeDriver(ABCToolDriver):
         else:
             logging.error(f"Enter a valid temperature target {temp}. Must be a three digit number in the range 0-999.")
 
-
-
-if __name__ == "__main__":
-    try:
-        logging.basicConfig(
-            level=logging.DEBUG,  # Set the logging level (DEBUG, INFO, etc.)
-            format="%(asctime)s - %(levelname)s - %(message)s",
-        )
-        driver = BioshakeDriver(port="COM7")
-        driver.connect()
-        print("resetting device...")
-        driver.reset()
-    finally:
-        driver.disconnect()
