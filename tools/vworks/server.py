@@ -5,7 +5,7 @@ import threading
 import time
 from tools.base_server import ToolServer, serve
 from tools.grpc_interfaces.bravo_pb2 import Command, Config
-from .driver import BravoDriver, kill_vworks
+from .driver import VWorksDriver, kill_vworks
 from typing import Callable, Any 
 
 if os.name == "nt":
@@ -13,8 +13,8 @@ if os.name == "nt":
     
 _thread_local = threading.local()
 
-class BravoServer(ToolServer):
-    toolType = "bravo"
+class VWorksServer(ToolServer):
+    toolType = "vworks"
     config: Config
     
     def __init__(self) -> None:
@@ -31,9 +31,9 @@ class BravoServer(ToolServer):
         self.shutdown = False
     
     def _configure(self, request: Config) -> None:
-        logging.info(f"Configuring Bravo in thread ID: {threading.get_ident()}")
+        logging.info(f"Configuring VWorks in thread ID: {threading.get_ident()}")
         self.config = request
-        logging.info("Bravo configuration complete")
+        logging.info("VWorks configuration complete")
     
     def _get_thread_driver(self, force_new:bool=False) -> Any:
 
@@ -62,10 +62,10 @@ class BravoServer(ToolServer):
                 time.sleep(0.5)
                 
                 # Create new driver
-                logging.info(f"Creating new BravoDriver in thread ID: {thread_id}")
-                _thread_local.driver = BravoDriver(init_com=False)
+                logging.info(f"Creating new VWorksDriver in thread ID: {thread_id}")
+                _thread_local.driver = VWorksDriver(init_com=False)
                 _thread_local.driver.login()
-                logging.info(f"BravoDriver created and logged in for thread ID: {thread_id}")
+                logging.info(f"VWorksDriver created and logged in for thread ID: {thread_id}")
             else:
                 # Verify the existing driver is still responsive
                 try:
@@ -78,18 +78,18 @@ class BravoServer(ToolServer):
             return _thread_local.driver
             
         except Exception as e:
-            logging.error(f"Failed to create BravoDriver in thread {thread_id}: {e}")
+            logging.error(f"Failed to create VWorksDriver in thread {thread_id}: {e}")
             # Clean up and try again with a fresh environment
             if hasattr(_thread_local, 'driver'):
                 try:
                     _thread_local.driver.close()
                 except Exception as e:
-                    logging.warning(f"Failed to close BravoDriver: {e}")
+                    logging.warning(f"Failed to close VWorksDriver: {e}")
                 delattr(_thread_local, 'driver')
             
             # If this is already a retry, give up to avoid infinite recursion
             if force_new:
-                raise RuntimeError(f"Failed to initialize Bravo driver after recovery attempt: {str(e)}")
+                raise RuntimeError(f"Failed to initialize VWorks driver after recovery attempt: {str(e)}")
             
             # Try once more with force_new=True
             logging.info("Attempting recovery by creating a fresh driver")
@@ -128,7 +128,7 @@ class BravoServer(ToolServer):
     def _execute_with_retry(
         self,
         operation_name: str,
-        operation_func: Callable[[BravoDriver], None],
+        operation_func: Callable[[VWorksDriver], None],
         max_retries: int = 2
     ) -> None:
         """Execute an operation with automatic retry on RPC errors"""
@@ -176,7 +176,7 @@ class BravoServer(ToolServer):
         thread_id = threading.get_ident()
         logging.info(f"RunProtocol called from thread ID: {thread_id}")
         
-        def run_op(driver:BravoDriver) -> None:
+        def run_op(driver:VWorksDriver) -> None:
             return driver.run_protocol(params.protocol_file)
         
         self._execute_with_retry("RunProtocol", run_op)
@@ -184,7 +184,7 @@ class BravoServer(ToolServer):
     def RunRunset(self, params: Command.RunRunset) -> None:
         thread_id = threading.get_ident()
         logging.info(f"RunRunset called from thread ID: {thread_id}")
-        def run_op(driver: BravoDriver) -> None:
+        def run_op(driver: VWorksDriver) -> None:
             return driver.run_runset(params.runset_file)
         
         self._execute_with_retry("RunRunset", run_op)
@@ -210,4 +210,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if not args.port:
         raise RuntimeWarning("Port must be provided...")
-    serve(BravoServer(), str(args.port))
+    serve(VWorksServer(), str(args.port))

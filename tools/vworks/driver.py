@@ -140,7 +140,7 @@ else:
 
 
 
-class BravoDriver(ABCToolDriver):
+class VWorksDriver(ABCToolDriver):
     def __init__(self, init_com:bool=False):
         self.live = False
         self.event_queue = queue.Queue()
@@ -304,7 +304,7 @@ class BravoDriver(ABCToolDriver):
 #    # kill_vworks()
 #     vworks = None
 #     # try:
-#     vworks = BravoDriver()
+#     vworks = VWorksDriver()
 #     vworks.login()
 #     vworks.run_runset("C:\\VWorks Workspace\\RunSet Files\\move_to_location_3.rst")
 #         # Wait for any final messages to process
