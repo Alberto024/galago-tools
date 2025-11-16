@@ -239,14 +239,14 @@ class BravoProtocolBuilder:
         )
         self.tasks.append(task)
     
-    def add_initialize_axis(self, axis: str = 'X', force_home: bool = True):
-        """Axis initialization/homing task
+    def add_initialize_axis(self, axis: str = 'XYZ', force_home: bool = True):
+        """Add axis initialization/homing task
         
         Args:
-            axis: Axis to initialize - 'X', 'Y', 'Z', 'W','G', 'Zg' or specific combinations
+            axis: Axis to initialize - 'X', 'Y', 'Z', 'W', 'XYZ', or specific combinations
             force_home: Initialize even if already homed
         """
-        valid_axes = ['X', 'Y', 'Z', 'W', 'G', 'Zg']
+        valid_axes = ['X', 'Y', 'Z', 'W', 'XY', 'XZ', 'YZ', 'XYZ']
         if axis.upper() not in valid_axes:
             raise ValueError(f"Invalid axis '{axis}'. Must be one of {valid_axes}")
         
@@ -299,26 +299,22 @@ class BravoProtocolBuilder:
     
     def build_xml(self) -> str:
         """Build complete protocol XML with proper formatting"""
-        lines = [
+        xml_parts = [
             "<?xml version='1.0' encoding='ASCII' ?>",
-            "<Velocity11 file='Protocol_Data' md5sum='' version='2.0' >"
+            "<Velocity11 file='Protocol_Data' md5sum='' version='2.0' >",
+            f"\t<File_Info AllowSimultaneousRun='1' AutoExportGanttChart='0' "
+            f"AutoLoadRacks='When the main protocol starts' AutoUnloadRacks='0' "
+            f"AutomaticallyLoadFormFile='1' Barcodes_Directory='' ClearInventory='0' "
+            f"DeleteHitpickFiles='1' Description='' Device_File='{self.device_file}' "
+            f"Display_User_Task_Descriptions='1' DynamicAssignPlateStorageLoad='0' "
+            f"FinishScript='' Form_File='' HandlePlatesInInstance='1' ImportInventory='0' "
+            f"InventoryFile='' Notes='' PipettePlatesInInstanceOrder='0' Protocol_Alias='' "
+            f"StartScript='' Use_Global_JS_Context='0' />",
+            "\t<Processes >",
+            "\t\t<Main_Processes >",
+            "\t\t\t<Process >",
+            "\t\t\t\t<Minimized >0</Minimized>"
         ]
-        
-        # File_Info
-        lines.append(f"\t<File_Info AllowSimultaneousRun='1' AutoExportGanttChart='0' "
-                    f"AutoLoadRacks='When the main protocol starts' AutoUnloadRacks='0' "
-                    f"AutomaticallyLoadFormFile='1' Barcodes_Directory='' ClearInventory='0' "
-                    f"DeleteHitpickFiles='1' Description='' Device_File='{self.device_file}' "
-                    f"Display_User_Task_Descriptions='1' DynamicAssignPlateStorageLoad='0' "
-                    f"FinishScript='' Form_File='' HandlePlatesInInstance='1' ImportInventory='0' "
-                    f"InventoryFile='' Notes='' PipettePlatesInInstanceOrder='0' Protocol_Alias='' "
-                    f"StartScript='' Use_Global_JS_Context='0' />")
-        
-        # Processes
-        lines.append("\t<Processes >")
-        lines.append("\t\t<Main_Processes >")
-        lines.append("\t\t\t<Process >")
-        lines.append("\t\t\t\t<Minimized >0</Minimized>")
         
         # Add subprocess task if it exists
         subprocess_task = None
@@ -330,43 +326,47 @@ class BravoProtocolBuilder:
                 other_tasks.append(task)
         
         if subprocess_task:
-            lines.extend(self._build_subprocess_xml(subprocess_task))
+            xml_parts.extend(self._build_subprocess_xml(subprocess_task))
         
         # Plate Parameters
-        lines.append("\t\t\t\t<Plate_Parameters >")
-        lines.append("\t\t\t\t\t<Parameter Name='Plate name' Value='process - 1' />")
-        lines.append("\t\t\t\t\t<Parameter Name='Plate type' Value='' />")
-        lines.append("\t\t\t\t\t<Parameter Name='Simultaneous plates' Value='1' />")
-        lines.append("\t\t\t\t\t<Parameter Name='Plates have lids' Value='0' />")
-        lines.append("\t\t\t\t\t<Parameter Name='Plates enter the system sealed' Value='0' />")
-        lines.append("\t\t\t\t\t<Parameter Name='Use single instance of plate' Value='0' />")
-        lines.append("\t\t\t\t\t<Parameter Name='Automatically update labware' Value='0' />")
-        lines.append("\t\t\t\t\t<Parameter Name='Enable timed release' Value='0' />")
-        lines.append("\t\t\t\t\t<Parameter Name='Release time' Value='30' />")
-        lines.append("\t\t\t\t\t<Parameter Name='Auto managed counterweight' Value='0' />")
-        lines.append("\t\t\t\t\t<Parameter Name='Barcode filename' Value='No Selection' />")
-        lines.append("\t\t\t\t\t<Parameter Name='Has header' Value='' />")
-        lines.append("\t\t\t\t\t<Parameter Name='Barcode or header South' Value='No Selection' />")
-        lines.append("\t\t\t\t\t<Parameter Name='Barcode or header West' Value='No Selection' />")
-        lines.append("\t\t\t\t\t<Parameter Name='Barcode or header North' Value='No Selection' />")
-        lines.append("\t\t\t\t\t<Parameter Name='Barcode or header East' Value='No Selection' />")
-        lines.append("\t\t\t\t</Plate_Parameters>")
-        lines.append("\t\t\t\t<Quarantine_After_Process >0</Quarantine_After_Process>")
-        lines.append("\t\t\t</Process>")
+        xml_parts.extend([
+            "\t\t\t\t<Plate_Parameters >",
+            "\t\t\t\t\t<Parameter Name='Plate name' Value='process - 1' />",
+            "\t\t\t\t\t<Parameter Name='Plate type' Value='' />",
+            "\t\t\t\t\t<Parameter Name='Simultaneous plates' Value='1' />",
+            "\t\t\t\t\t<Parameter Name='Plates have lids' Value='0' />",
+            "\t\t\t\t\t<Parameter Name='Plates enter the system sealed' Value='0' />",
+            "\t\t\t\t\t<Parameter Name='Use single instance of plate' Value='0' />",
+            "\t\t\t\t\t<Parameter Name='Automatically update labware' Value='0' />",
+            "\t\t\t\t\t<Parameter Name='Enable timed release' Value='0' />",
+            "\t\t\t\t\t<Parameter Name='Release time' Value='30' />",
+            "\t\t\t\t\t<Parameter Name='Auto managed counterweight' Value='0' />",
+            "\t\t\t\t\t<Parameter Name='Barcode filename' Value='No Selection' />",
+            "\t\t\t\t\t<Parameter Name='Has header' Value='' />",
+            "\t\t\t\t\t<Parameter Name='Barcode or header South' Value='No Selection' />",
+            "\t\t\t\t\t<Parameter Name='Barcode or header West' Value='No Selection' />",
+            "\t\t\t\t\t<Parameter Name='Barcode or header North' Value='No Selection' />",
+            "\t\t\t\t\t<Parameter Name='Barcode or header East' Value='No Selection' />",
+            "\t\t\t\t</Plate_Parameters>",
+            "\t\t\t\t<Quarantine_After_Process >0</Quarantine_After_Process>",
+            "\t\t\t</Process>"
+        ])
         
         # Pipette_Process with other tasks
         if other_tasks and subprocess_task:
-            lines.extend(self._build_pipette_process_xml(subprocess_task, other_tasks))
+            xml_parts.extend(self._build_pipette_process_xml(subprocess_task, other_tasks))
         
-        lines.append("\t\t</Main_Processes>")
-        lines.append("\t</Processes>")
-        lines.append("</Velocity11>")
+        xml_parts.extend([
+            "\t\t</Main_Processes>",
+            "\t</Processes>",
+            "</Velocity11>"
+        ])
         
-        return '\n'.join(lines)
+        return '\n'.join(xml_parts)
     
-    def _build_subprocess_xml(self, task: BravoTask) -> list:
+    def _build_subprocess_xml(self, task: BravoTask) -> List[str]:
         """Build subprocess task XML"""
-        lines = [
+        xml_parts = [
             "\t\t\t\t<Task Name='Bravo::SubProcess' >",
             "\t\t\t\t\t<Enable_Backup >0</Enable_Backup>",
             "\t\t\t\t\t<Task_Disabled >0</Task_Disabled>",
@@ -374,66 +374,70 @@ class BravoProtocolBuilder:
             "\t\t\t\t\t<Has_Breakpoint >0</Has_Breakpoint>",
             "\t\t\t\t\t<Advanced_Settings />",
             "\t\t\t\t\t<TaskScript Name='TaskScript' Value='' />",
-            "\t\t\t\t\t<Parameters >"
+            "\t\t\t\t\t<Parameters >",
+            f"\t\t\t\t\t\t<Parameter Category='' Name='Sub-process name' Value='{task.parameters['Sub-process name']}' />",
+            f"\t\t\t\t\t\t<Parameter Category='Static labware configuration' Name='Display confirmation' Value=\"{task.parameters['Display confirmation']}\" />"
         ]
         
-        # Add subprocess parameters
-        lines.append(f"\t\t\t\t\t\t<Parameter Category='' Name='Sub-process name' Value='{task.parameters['Sub-process name']}' />")
-        lines.append(f"\t\t\t\t\t\t<Parameter Category='Static labware configuration' Name='Display confirmation' Value=\"{task.parameters['Display confirmation']}\" />")
-        
+        # Add labware configuration
         for i in range(1, 10):
             labware = task.parameters.get(str(i), '<use default>')
-            # Escape special characters but handle <use default> properly
             if labware == '<use default>':
                 labware_escaped = '&lt;use default&gt;'
             else:
                 labware_escaped = labware.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&apos;')
-            lines.append(f"\t\t\t\t\t\t<Parameter Category='Static labware configuration' Name='{i}' Value='{labware_escaped}' />")
+            xml_parts.append(f"\t\t\t\t\t\t<Parameter Category='Static labware configuration' Name='{i}' Value='{labware_escaped}' />")
         
-        lines.append("\t\t\t\t\t</Parameters>")
-        lines.append("\t\t\t\t\t<Parameters >")
-        lines.append(f"\t\t\t\t\t\t<Parameter Centrifuge='0' Name='SubProcess_Name' Pipettor='1' Value='{task.parameters['Sub-process name']}' />")
-        lines.append("\t\t\t\t\t</Parameters>")
-        lines.append("\t\t\t\t</Task>")
+        xml_parts.extend([
+            "\t\t\t\t\t</Parameters>",
+            "\t\t\t\t\t<Parameters >",
+            f"\t\t\t\t\t\t<Parameter Centrifuge='0' Name='SubProcess_Name' Pipettor='1' Value='{task.parameters['Sub-process name']}' />",
+            "\t\t\t\t\t</Parameters>",
+            "\t\t\t\t</Task>"
+        ])
         
-        return lines
+        return xml_parts
     
-    def _build_pipette_process_xml(self, subprocess_task: BravoTask, tasks: list) -> list:
+    def _build_pipette_process_xml(self, subprocess_task: BravoTask, tasks: List[BravoTask]) -> List[str]:
         """Build pipette process with tasks"""
-        lines = [
+        xml_parts = [
             f"\t\t\t<Pipette_Process Name='{subprocess_task.parameters['Sub-process name']}' >",
             "\t\t\t\t<Minimized >0</Minimized>"
         ]
         
         # Add each task
         for i, task in enumerate(tasks, 1):
-            lines.extend(self._build_task_xml(task, i))
+            xml_parts.extend(self._build_task_xml(task, i))
         
         # Devices section
-        lines.append("\t\t\t\t<Devices >")
-        lines.append(f"\t\t\t\t\t<Device Device_Name='{self.device_name}' Location_Name='{self.location_name}' />")
-        lines.append("\t\t\t\t</Devices>")
+        xml_parts.extend([
+            "\t\t\t\t<Devices >",
+            f"\t\t\t\t\t<Device Device_Name='{self.device_name}' Location_Name='{self.location_name}' />",
+            "\t\t\t\t</Devices>",
+            "\t\t\t\t<Parameters >",
+            f"\t\t\t\t\t<Parameter Name='Display confirmation' Value=\"{subprocess_task.parameters['Display confirmation']}\" />"
+        ])
         
-        # Parameters section (labware config)
-        lines.append("\t\t\t\t<Parameters >")
-        lines.append(f"\t\t\t\t\t<Parameter Name='Display confirmation' Value=\"{subprocess_task.parameters['Display confirmation']}\" />")
+        # Add labware config
         for i in range(1, 10):
             labware = subprocess_task.parameters.get(str(i), '<use default>')
-            # Escape special characters but handle <use default> properly
             if labware == '<use default>':
                 labware_escaped = '&lt;use default&gt;'
             else:
                 labware_escaped = labware.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&apos;')
-            lines.append(f"\t\t\t\t\t<Parameter Name='{i}' Value='{labware_escaped}' />")
-        lines.append("\t\t\t\t</Parameters>")
-        lines.append("\t\t\t\t<Dependencies />")
-        lines.append("\t\t\t</Pipette_Process>")
+            xml_parts.append(f"\t\t\t\t\t<Parameter Name='{i}' Value='{labware_escaped}' />")
         
-        return lines
+        xml_parts.extend([
+            "\t\t\t\t</Parameters>",
+            "\t\t\t\t<Dependencies />",
+            "\t\t\t</Pipette_Process>"
+        ])
+        
+        return xml_parts
     
-    def _build_task_xml(self, task: BravoTask, task_num: int) -> list:
+    def _build_task_xml(self, task: BravoTask, task_num: int) -> List[str]:
         """Build individual task XML"""
-        lines = [
+        xml_parts = [
             f"\t\t\t\t<Task Name='{task.name}' Task_Type='{task.task_type}' >",
             "\t\t\t\t\t<Enable_Backup >0</Enable_Backup>",
             "\t\t\t\t\t<Task_Disabled >0</Task_Disabled>",
@@ -446,7 +450,7 @@ class BravoProtocolBuilder:
             "\t\t\t\t\t<Parameters >"
         ]
         
-        # Add parameters in order
+        # Add parameters
         for name, value in task.parameters.items():
             # Determine category
             category = ''
@@ -462,40 +466,39 @@ class BravoProtocolBuilder:
             elif 'distance' in name.lower() and 'Distance From Well Bottom' not in category:
                 category = 'Distance From Well Bottom'
             
-            # Escape special XML characters in value - but NOT for well selection which is already escaped
+            # Well selection is already escaped, don't double escape
             if name == 'Well selection':
-                # Well selection is already properly escaped XML - don't double escape
                 value_str = str(value)
             else:
                 value_str = str(value).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&apos;')
             
             if category:
-                lines.append(f"\t\t\t\t\t\t<Parameter Category='{category}' Name='{name}' Value='{value_str}' />")
+                xml_parts.append(f"\t\t\t\t\t\t<Parameter Category='{category}' Name='{name}' Value='{value_str}' />")
             else:
-                lines.append(f"\t\t\t\t\t\t<Parameter Category='' Name='{name}' Value='{value_str}' />")
+                xml_parts.append(f"\t\t\t\t\t\t<Parameter Category='' Name='{name}' Value='{value_str}' />")
         
         # Add task number if not present
         if 'Task number' not in task.parameters:
-            lines.append(f"\t\t\t\t\t\t<Parameter Category='Task Description' Name='Task number' Value='{task_num}' />")
+            xml_parts.append(f"\t\t\t\t\t\t<Parameter Category='Task Description' Name='Task number' Value='{task_num}' />")
         
-        lines.append("\t\t\t\t\t</Parameters>")
+        xml_parts.append("\t\t\t\t\t</Parameters>")
         
         # Add pipette head if present
         if task.pipette_head:
             head = task.pipette_head
-            lines.append(f"\t\t\t\t\t<PipetteHead AssayMap='{head['AssayMap']}' Disposable='{head['Disposable']}' "
-                        f"HasTips='{head['HasTips']}' MaxRange='{head['MaxRange']}' MinRange='{head['MinRange']}' "
-                        f"Name='{head['Name']}' >")
+            xml_parts.append(f"\t\t\t\t\t<PipetteHead AssayMap='{head['AssayMap']}' Disposable='{head['Disposable']}' "
+                           f"HasTips='{head['HasTips']}' MaxRange='{head['MaxRange']}' MinRange='{head['MinRange']}' "
+                           f"Name='{head['Name']}' >")
             
             mode = head['Mode']
-            lines.append(f"\t\t\t\t\t\t<PipetteHeadMode Channels='{mode['Channels']}' ColumnCount='{mode['ColumnCount']}' "
-                        f"RowCount='{mode['RowCount']}' SubsetConfig='{mode['SubsetConfig']}' "
-                        f"SubsetType='{mode['SubsetType']}' TipType='{mode['TipType']}' />")
-            lines.append("\t\t\t\t\t</PipetteHead>")
+            xml_parts.append(f"\t\t\t\t\t\t<PipetteHeadMode Channels='{mode['Channels']}' ColumnCount='{mode['ColumnCount']}' "
+                           f"RowCount='{mode['RowCount']}' SubsetConfig='{mode['SubsetConfig']}' "
+                           f"SubsetType='{mode['SubsetType']}' TipType='{mode['TipType']}' />")
+            xml_parts.append("\t\t\t\t\t</PipetteHead>")
         
-        lines.append("\t\t\t\t</Task>")
+        xml_parts.append("\t\t\t\t</Task>")
         
-        return lines
+        return xml_parts
 
 
 class BravoVWorksDriver:
@@ -665,7 +668,7 @@ if __name__ == "__main__":
     bravo.dispense(4, 50.0, distance_from_bottom=2.0)
     bravo.mix(4, 30.0, cycles=5, aspirate_distance=1.0, dispense_distance=3.0)
     bravo.tips_off(2)
-    bravo.home('XYZ')  # Can also do 'X', 'Y', 'Z', 'W' individually
+    bravo.home('X')  # Can also do 'X', 'Y', 'Z', 'W' individually
     
     # Execute
     bravo.execute()

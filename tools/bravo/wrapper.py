@@ -276,7 +276,7 @@ class BravoViaVWorksDriver(ABCToolDriver):
         script = f'var result = {self.bravo_var}.Aspirate({volume}, {pre_aspirate_volume}, {post_aspirate_volume}, {plate_location}, {distance_from_well_bottom}, {retract_distance_per_microliter}); if (result != 0) {{ throw new Error("Aspirate failed: " + {self.bravo_var}.GetLastError()); }}'
         
         self._add_command(script, f"Aspirate {volume}µL from location {plate_location}", 8.0)
-        logging.info(f"✓ Aspirate command queued")
+        logging.info("✓ Aspirate command queued")
     
     def dispense(self, volume: float, empty_tips: bool, blow_out_volume: float,
                  plate_location: int, distance_from_well_bottom: float = 0.0,
@@ -289,7 +289,7 @@ class BravoViaVWorksDriver(ABCToolDriver):
         script = f'var result = {self.bravo_var}.Dispense({volume}, {empty_tips_str}, {blow_out_volume}, {plate_location}, {distance_from_well_bottom}, {retract_distance_per_microliter}); if (result != 0) {{ throw new Error("Dispense failed: " + {self.bravo_var}.GetLastError()); }}'
         
         self._add_command(script, f"Dispense {volume}µL to location {plate_location}", 8.0)
-        logging.info(f"✓ Dispense command queued")
+        logging.info("✓ Dispense command queued")
     
     def show_diagnostics(self) -> None:
         """Show diagnostics dialog"""
