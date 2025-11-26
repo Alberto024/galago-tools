@@ -49,37 +49,47 @@ class BravoDriver(ABCToolDriver):
             self._parse_device_file()
     
     def _parse_device_file(self) -> None:
-            """Extract device and location info from device file"""
-            if not os.path.exists(self.device_file):
-                logging.warning(f"Device file not found: {self.device_file}")
-                raise FileNotFoundError(f"Device file not found: {self.device_file}")
+        """Extract device and location info from device file"""
+        
+        logging.info(f"Parsing device file: {self.device_file}")
+        if not os.path.exists(self.device_file):
+            logging.error(f"Device file not found: {self.device_file}")
+            raise FileNotFoundError(f"Device file not found: {self.device_file}")
+        
+        try:
+            import xml.etree.ElementTree as ET
+            tree = ET.parse(self.device_file)
+            root = tree.getroot()
             
-            try:
-                import xml.etree.ElementTree as ET
-                tree = ET.parse(self.device_file)
-                root = tree.getroot()
-                
-                # Find all Bravo devices
-                devices = root.findall(".//Device[@Object_Type='Bravo']")
-                
-                if len(devices) == 0:
-                    logging.warning("No Bravo devices found in device file")
-                elif len(devices) > 1:
-                    device_names = [d.get('Name', 'Unknown') for d in devices]
-                    logging.warning(
-                        f"Multiple Bravo devices found in configuration file: {', '.join(device_names)}. "
-                        f"Defaulting to first device: '{device_names[0]}'. "
-                        f"Specify device_name if you would like to use a different device."
-                    )
-                    self.device_name = devices[0].get('Name', self.device_name)
-                    logging.info(f"Using Bravo device: {self.device_name}")
-                else:
-                    # Single device found
-                    self.device_name = devices[0].get('Name', self.device_name)
-                    logging.info(f"Found Bravo device: {self.device_name}")
-                        
-            except Exception as e:
-                logging.error(f"Error parsing device file: {e}")
+            # Find all Bravo devices
+            devices = root.findall(".//Device[@Object_Type='Bravo']")
+            
+            if len(devices) == 0:
+                logging.error("No Bravo devices found in device file")
+                raise ValueError(
+                    f"No Bravo devices found in device file: {self.device_file}. "
+                    f"Please ensure the device file contains at least one device with Object_Type='Bravo'."
+                )
+            elif len(devices) > 1:
+                device_names = [d.get('Name', 'Unknown') for d in devices]
+                logging.error(
+                    f"Multiple Bravo devices found in configuration file: {', '.join(device_names)}"
+                )
+                raise ValueError(
+                    f"Multiple Bravo devices found in device file: {', '.join(device_names)}. "
+                    f"Please specify device_name parameter to select which device to use."
+                )
+            else:
+                # Single device found
+                self.device_name = devices[0].get('Name', self.device_name)
+                logging.info(f"Found Bravo device: {self.device_name}")
+                    
+        except ET.ParseError as e:
+            logging.error(f"Error parsing device file XML: {e}")
+            raise ValueError(f"Invalid XML in device file: {self.device_file}") from e
+        except Exception as e:
+            logging.error(f"Error parsing device file: {e}")
+            raise
     
     def add_subprocess_task(self, deck_configuration: Dict[int, str]) -> None:
         """Add subprocess initialization task with labware configuration
@@ -618,7 +628,7 @@ class BravoVWorksDriver:
     
     def __init__(self, device_file: str) -> None:
         self.device_file = device_file
-        self.vworks = VWorksDriver()
+        self.vworks = VWorksDriver(init_com=False)
         self.builder = BravoDriver(device_file)
         self._initialized = False
         
@@ -630,8 +640,8 @@ class BravoVWorksDriver:
         Args:
             plate_location: Location to move to
         """
-        if not self._initialized:
-            raise RuntimeError("Bravo not initialized. Call initialize() first.")
+        # if not self._initialized:
+        #     raise RuntimeError("Bravo not initialized. Call initialize() first.")
         self.builder.add_move_to_location(plate_location)
         logging.info(f"✓ Move to location {plate_location} queued")
 
@@ -641,8 +651,8 @@ class BravoVWorksDriver:
         Args:
             plate_location: Location of tip box
         """
-        if not self._initialized:
-            raise RuntimeError("Bravo not initialized. Call initialize() first.")
+        # if not self._initialized:
+        #     raise RuntimeError("Bravo not initialized. Call initialize() first.")
         self.builder.add_tips_on(plate_location)
         logging.info(f"✓ Tips on at location {plate_location} queued")
 
@@ -653,8 +663,8 @@ class BravoVWorksDriver:
             plate_location: Location of tip disposal
             mark_used: Whether to mark tips as used
         """
-        if not self._initialized:
-            raise RuntimeError("Bravo not initialized. Call initialize() first.")
+        # if not self._initialized:
+        #     raise RuntimeError("Bravo not initialized. Call initialize() first.")
         self.builder.add_tips_off(plate_location, mark_used)
         logging.info(f"✓ Tips off at location {plate_location} queued")
 
@@ -672,8 +682,8 @@ class BravoVWorksDriver:
                 tip_touch_retract_distance: float = 0.0,
                 tip_touch_horizontal_offset: float = 0.0) -> None:
         """Aspirate from location"""
-        if not self._initialized:
-            raise RuntimeError("Bravo not initialized. Call initialize() first.")
+        # if not self._initialized:
+        #     raise RuntimeError("Bravo not initialized. Call initialize() first.")
         self.builder.add_aspirate(location, volume, pre_aspirate_volume, post_aspirate_volume,
                                 liquid_class, distance_from_well_bottom, 
                                 retract_distance_per_microliter, pipette_technique,
@@ -695,8 +705,8 @@ class BravoVWorksDriver:
                 tip_touch_retract_distance: float = 0.0,
                 tip_touch_horizontal_offset: float = 0.0) -> None:
         """Dispense to location"""
-        if not self._initialized:
-            raise RuntimeError("Bravo not initialized. Call initialize() first.")
+        # if not self._initialized:
+        #     raise RuntimeError("Bravo not initialized. Call initialize() first.")
         self.builder.add_dispense(location, empty_tips, volume, blowout_volume,
                                 liquid_class, distance_from_well_bottom,
                                 retract_distance_per_microliter, pipette_technique,
@@ -706,15 +716,13 @@ class BravoVWorksDriver:
 
 
 
-    def initialize(self, deck_configuration: Optional[Dict[int, str]] = None) -> None:
-        """Initialize Bravo with deck configuration
+    def initialize(self, deck_configuration: Dict[int, str] = None) -> None:
+        """Add Bravo Deck configuration
         
         Args:
             deck_configuration: Dictionary mapping position (1-9) to labware name
         """
-        if deck_configuration is None:
-            deck_configuration = {}
-        
+
         self.builder.add_subprocess_task(deck_configuration)
         self._initialized = True
         logging.info("✓ Bravo initialization queued")
@@ -753,8 +761,8 @@ class BravoVWorksDriver:
             tip_touch_retract_distance: Distance to retract after tip touch (mm) (-20 to 50)
             tip_touch_horizontal_offset: Horizontal offset for tip touch (mm) (-9 to 5)
        """
-        if not self._initialized:
-            raise RuntimeError("Bravo not initialized. Call initialize() first.")
+        # if not self._initialized:
+        #     raise RuntimeError("Bravo not initialized. Call initialize() first.")
         
         assert volume > 0 and volume <= 250, "Volume must be between 0 and 250 µL"
         assert cycles > 0, "Cycles must be greater than 0"
@@ -786,9 +794,9 @@ class BravoVWorksDriver:
         Args:
             axis: Axis to home - 'X', 'Y', 'Z', 'W', 'G', 'Zg'
             force: Initialize even if already homed
-        """
-        if not self._initialized:
-            raise RuntimeError("Bravo not initialized. Call initialize() first.")
+        # """
+        # if not self._initialized:
+        #     raise RuntimeError("Bravo not initialized. Call initialize() first.")
         self.builder.add_initialize_axis(axis, force)
         logging.info(f"✓ Home {axis} axis queued")
 
@@ -797,6 +805,10 @@ class BravoVWorksDriver:
         if not self.builder.tasks:
             logging.warning("No tasks to execute")
             return
+        
+        #Check configuration 
+        if not self._initialized:
+            raise RuntimeError("Bravo not initialized. Configure bravo deck before task execution.")
         
         # Generate protocol XML
         xml_content = self.builder.build_xml()
@@ -882,7 +894,7 @@ class BravoVWorksDriver:
 if __name__ == "__main__":
 
     # Device configuration
-    device_file = r'/Users/silvioo/Documents/git_projects/galago-tools/tools/bravo/multiple_devices.dev'
+    device_file = r'C:/galago-tools/tools/bravo/multiple_devices.dev'
 
     # Create driver
     bravo = BravoVWorksDriver(device_file)
@@ -911,40 +923,39 @@ if __name__ == "__main__":
     dispense_height = 5.0   # mm from bottom
 
     # # Iterate through each column
-    # for column_idx in range(3):
-    #     tip_loc = tip_positions[column_idx]
-    #     source_loc = source_positions[column_idx]
-    #     dest_loc = destination_positions[column_idx]
+    for column_idx in range(3):
+        tip_loc = tip_positions[column_idx]
+        source_loc = source_positions[column_idx]
+        dest_loc = destination_positions[column_idx]
         
-    #     logging.info(f"--- Processing Column {column_idx + 1} ---")
+        logging.info(f"--- Processing Column {column_idx + 1} ---")
         
-    #     # Pick up tips
-    #     bravo.tips_on(tip_loc)
+        # Pick up tips
+        bravo.tips_on(tip_loc)
         
-    #     # Aspirate from source
-    #     bravo.aspirate(
-    #         location=source_loc,
-    #         volume=transfer_volume,
-    #         distance_from_well_bottom=aspirate_height
-    #     )
+        # Aspirate from source
+        bravo.aspirate(
+            location=source_loc,
+            volume=transfer_volume,
+            distance_from_well_bottom=aspirate_height
+        )
         
-    #     # Dispense to destination
-    #     bravo.dispense(
-    #         location=dest_loc,
-    #         volume=transfer_volume,
-    #         distance_from_well_bottom=dispense_height
-    #     )
+        # Dispense to destination
+        bravo.dispense(
+            location=dest_loc,
+            volume=transfer_volume,
+            distance_from_well_bottom=dispense_height
+        )
         
-    #     # Eject tips
-    #     bravo.tips_off(tip_loc)
+        # Eject tips
+        bravo.tips_off(tip_loc)
 
     # # Home the pipette head when done
     bravo.home('X')
 
     # # Execute the protocol
-    bravo.execute(simulate=True, clear_after_execution=False)
+    bravo.execute(simulate=False, clear_after_execution=False)
 
     # Close driver
     bravo.close()
-
     logging.info("✓ Automated transfer complete!")

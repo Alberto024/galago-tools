@@ -156,6 +156,7 @@ class VWorksDriver(ABCToolDriver):
                 self.driver = cc.CreateObject("VWorks4.VWorks4API")
                 self.event_sink = VWorksEventSink(self.event_queue)
                 self.event_connection = GetEvents(self.driver, self.event_sink)
+                self.login()
                 self.show_vworks(True)
             except Exception as e:
                 logging.error(f"Failed to create VWorks COM object: {e}")
@@ -180,7 +181,7 @@ class VWorksDriver(ABCToolDriver):
 
     def login(self, user:str="administrator", psw:str="administrator") -> None:
         self.driver.Login(user, psw)
-        time.sleep(2)
+        time.sleep(3)
     
     def logout(self)-> None:
         if self.driver:
@@ -203,9 +204,9 @@ class VWorksDriver(ABCToolDriver):
         
         try:
             pythoncom.CoInitializeEx(pythoncom.COINIT_APARTMENTTHREADED)
-            self.show_vworks()
+            self.show_vworks(False)
             logging.info(f"Loading protocol: {protocol}")
-            self.driver.LoadProtocol(protocol)
+            # self.driver.LoadProtocol(protocol)
             
             logging.info(f"Running protocol: {protocol}")
             self.driver.RunProtocol(protocol, 1)
@@ -225,8 +226,8 @@ class VWorksDriver(ABCToolDriver):
         if not os.path.exists(runset_file):
             raise FileNotFoundError(f"{runset_file} does not exist.")
         try:
-            pythoncom.CoInitializeEx(pythoncom.COINIT_APARTMENTTHREADED)
-            self.show_vworks()
+            # pythoncom.CoInitializeEx(pythoncom.COINIT_APARTMENTTHREADED)
+            # self.show_vworks(False)
             self.driver.LoadRunsetFile(runset_file)
             success = self.wait_for_protocol_completion(runset_file)
             if not success:
@@ -245,8 +246,6 @@ class VWorksDriver(ABCToolDriver):
             try:
                 # Non-blocking queue check
                 event_type, event_data = self.event_queue.get_nowait()
-                print(f"Event received: {event_type} - Data: {event_data}")
-                
                 last_event_type = event_type
                 last_event_data = event_data
                 
@@ -300,18 +299,19 @@ class VWorksDriver(ABCToolDriver):
             except Exception as e:
                 logging.warning(f"Error during cleanup: {e}")
 
-# if __name__ == "__main__":
-#    # kill_vworks()
-#     vworks = None
-#     # try:
-#     vworks = VWorksDriver()
-#     vworks.login()
-#     vworks.run_runset("C:\\VWorks Workspace\\RunSet Files\\move_to_location_3.rst")
-#         # Wait for any final messages to process
-#     # except Exception as e:
-#     #     print(f"Error running protocol: {e}")
-#     # finally:
-#     #     if vworks:
-#     #         print("Cleaning up resources")
-#     #         vworks.close()
-#     #     sys.exit(0)
+if __name__ == "__main__":
+   # kill_vworks()
+    vworks = None
+    # try:
+    vworks = VWorksDriver()
+    vworks.login()
+    for i in range(3):
+        vworks.run_runset(f"C:\\VWorks Workspace\\RunSet Files\\move_to_location_{i+1}.rst")
+        # Wait for any final messages to process
+    # except Exception as e:
+    #     print(f"Error running protocol: {e}")
+    # finally:
+    #     if vworks:
+    #         print("Cleaning up resources")
+    #         vworks.close()
+    #     sys.exit(0)
