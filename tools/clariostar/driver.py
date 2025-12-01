@@ -10,7 +10,7 @@ if os.name != "nt":
 else:
     import pythoncom
     import win32com.client
-    from win32com.client import CDispatch
+    from win32com.client.dynamic import CDispatch
 
     class CLARIOstarDriver(ABCToolDriver):
         """
