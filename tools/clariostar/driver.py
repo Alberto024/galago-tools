@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from typing import cast
 
 from tools.base_server import ABCToolDriver
 
@@ -9,6 +10,7 @@ if os.name != "nt":
 else:
     import pythoncom
     import win32com.client
+    from win32com.client import CDispatch
 
     class CLARIOstarDriver(ABCToolDriver):
         """
@@ -25,7 +27,7 @@ else:
             """
             self.server_name: str = server_name
             self.live: bool = False
-            self.client = None
+            self.client: CDispatch
 
             if os.name != "nt":
                 raise NotImplementedError(
@@ -54,7 +56,7 @@ else:
                 -3 if different server is active
             """
             logging.info(f"Opening connection to ActiveX server {self.server_name}")
-            result = self.client.OpenConnectionV(self.server_name)
+            result = cast(int, self.client.OpenConnectionV(self.server_name))
             logging.info(f"Response: {result}")
 
             # Wait for instrument to be ready
@@ -67,10 +69,9 @@ else:
 
         def close_connection(self) -> None:
             """Close the connection and terminate the CLARIOstar software."""
-            if self.client:
-                self.client.CloseConnection()
-                self.live = False
-                logging.info("Connection closed")
+            self.client.CloseConnection()
+            self.live = False
+            logging.info("Connection closed")
 
         """
             Establishing connection automatically initializes the instrument so we don't need to call initialize() explicitly.
@@ -80,7 +81,7 @@ else:
             """Initialize the reader."""
             logging.info("Initializing reader")
             cmd_list = ["Init"]
-            result = self.client.Execute(cmd_list)
+            result = cast(int, self.client.Execute(cmd_list))
             logging.info(f"Reader initialized with {result}")
 
             logging.info("Reader initialized")
@@ -98,7 +99,7 @@ else:
                 String value of the requested item
             """
 
-            result = self.client.GetInfoV(item_name)
+            result = cast(str, self.client.GetInfoV(item_name))
 
             # logging.info(f"info status is {status}")
             logging.info(f"Result of Info is {result}")
@@ -117,12 +118,12 @@ else:
                 TimeoutError: If the status is not reached within the timeout
             """
             start_time = time.time()
-            status = ""
+            current_status = ""
             while True:
                 if time.time() - start_time > timeout:
                     raise TimeoutError(f"Status {status} not reached within {timeout} seconds")
-                status = self.get_info("Status")
-                if status == status:
+                current_status = self.get_info("Status")
+                if current_status == status:
                     break
                 time.sleep(0.1)
 
@@ -143,7 +144,7 @@ else:
                 cmd.extend([str(x), str(y)])
 
             logging.info("Moving plate carrier out.")
-            result = self.client.ExecuteAndWait(cmd)
+            result = cast(int, self.client.ExecuteAndWait(cmd))
             self.wait_for_status("Ready", timeout=30)
             logging.info(f"Plate carrier moved out with result {result}")
             if result != 0:
@@ -167,7 +168,7 @@ else:
                 cmd.extend([str(x), str(y)])
 
             logging.info("Moving plate carrier in.")
-            result = self.client.ExecuteAndWait(cmd)
+            result = cast(int, self.client.ExecuteAndWait(cmd))
             self.wait_for_status("Ready", timeout=30)
             logging.info(f"Plate carrier moved in with result {result}")
             return result
@@ -187,7 +188,7 @@ else:
             """
             logging.info(f"Setting temperature to {temperature}°C")
             cmd = ["Temp", f"{temperature:.1f}"]
-            result = self.client.ExecuteAndWait(cmd)
+            result = cast(int, self.client.ExecuteAndWait(cmd))
             self.wait_for_status("Ready", timeout=10)
 
             logging.info(f"Temperature set to {temperature}°C")
@@ -228,7 +229,7 @@ else:
             ]
 
             logging.info(f"Running protocol {protocol_name}")
-            result = self.client.ExecuteAndWait(cmd)
+            result = cast(int, self.client.ExecuteAndWait(cmd))
             self.wait_for_status("Ready", 90)
             logging.info(f"Protocol {protocol_name} completed")
             return result
@@ -271,7 +272,7 @@ else:
                 "A" if focus_adjustment else "-",
             ]
             logging.info(f"Executing command: {cmd}")
-            result = self.client.ExecuteAndWait(cmd)
+            result = cast(int, self.client.ExecuteAndWait(cmd))
             time.sleep(0.1)
             self.wait_for_status("Ready")
             logging.info(f"Command result: {result}")
