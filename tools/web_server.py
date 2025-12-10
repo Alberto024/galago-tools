@@ -125,11 +125,10 @@ def display_startup_message(
 
     # Detect if we can safely use emojis
     try:
-        # Test if stdout can handle emojis
-        sys.stdout.write("\U0001f680")
-        sys.stdout.flush()
+        # Test if stdout can handle emojis WITHOUT displaying
+        "\U0001f680".encode(sys.stdout.encoding or "utf-8")
         use_emojis = True
-    except (UnicodeEncodeError, UnicodeDecodeError):
+    except (UnicodeEncodeError, UnicodeDecodeError, AttributeError):
         use_emojis = False
 
     # Choose symbols based on encoding support
