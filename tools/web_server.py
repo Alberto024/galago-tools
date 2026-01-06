@@ -42,7 +42,11 @@ LOG_TIME = int(time.time())
 LOCAL_IP = get_local_ip()
 
 
-init(autoreset=True)
+# Force color output if FORCE_COLOR is set (for windows c# launcher)
+if os.environ.get("FORCE_COLOR") == "1":
+    init(autoreset=True, strip=False, convert=False)
+else:
+    init(autoreset=True)
 
 
 def setup_logging() -> Path:
@@ -125,11 +129,10 @@ def display_startup_message(
 
     # Detect if we can safely use emojis
     try:
-        # Test if stdout can handle emojis
-        sys.stdout.write("\U0001f680")
-        sys.stdout.flush()
+        # Test if stdout can handle emojis WITHOUT displaying
+        "\U0001f680".encode(sys.stdout.encoding or "utf-8")
         use_emojis = True
-    except (UnicodeEncodeError, UnicodeDecodeError):
+    except (UnicodeEncodeError, UnicodeDecodeError, AttributeError):
         use_emojis = False
 
     # Choose symbols based on encoding support
@@ -450,6 +453,11 @@ async def start_tool(tool_name: str, tool_type: str, port: int) -> bool:
         return False
 
 
+async def start_toolbox() -> bool:
+    """Start the toolbox server"""
+    return await start_tool("Tool Box", "toolbox", 1010)
+
+
 async def stop_tool(tool_name: str) -> bool:
     """Stop a tool process with proper cleanup"""
     try:
@@ -634,6 +642,8 @@ async def handle_websocket_message(websocket: Any, data: Dict[str, Any]) -> None
 
         elif action == "relaunch_all":
             success = await relaunch_all_tools()
+            await start_toolbox()
+
             response = {
                 "type": "response",
                 "success": success,
@@ -897,10 +907,7 @@ async def main() -> None:
     global config, log_folder, last_tool_status
 
     try:
-        # Parse command line arguments
         args = parse_arguments()
-
-        # Setup logging first
         log_folder = setup_logging()
 
         # Set API URL if provided via command line
@@ -938,7 +945,12 @@ async def main() -> None:
         asyncio.create_task(monitor_log_files())
         asyncio.create_task(monitor_tool_processes())
 
-        # open_browser(browser_url, delay=2.0)
+        all_tools_started = await relaunch_all_tools()
+        if all_tools_started:
+            logger.info("All tools started successfully")
+        toolbox_started = await start_toolbox()
+        if toolbox_started:
+            logger.info("Tool Box started successfully")
         # Wait for server to close
         await server.wait_closed()
 
